@@ -1,0 +1,8 @@
+# SAM build directory
+.aws-sam/
+
+#SAM config once you setup your bucket, prefix etc... Skipping since its user dependent.
+samconfig.toml
+
+#Ignore compiled files that tend to stay around after local container testing.
+*.pyc
