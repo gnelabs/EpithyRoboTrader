@@ -186,6 +186,9 @@ Resources:
     Type: AWS::Cognito::UserPoolClient
     Properties:
       UserPoolId: {Ref: RoboTraderCognitoUserPool}
+      #Force JWT refresh tokens to only be valid for one day.
+      #Refresh tokens are stored client-side.
+      RefreshTokenValidity: 1
   #Cognito identity pool for Api gateway auth.
   RoboTraderCognitoIdentityPool:
     Type: AWS::Cognito::IdentityPool
