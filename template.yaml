@@ -18,7 +18,7 @@ Globals:
 Outputs:
   RoboTraderApiEndpoint:
     Description: "API Gateway endpoint URL to access manager UI."
-    Value: {'Fn::Sub': 'https://${RoboTraderWebsiteHTTPApi}.execute-api.${AWS::Region}.amazonaws.com/login'}
+    Value: {'Fn::Sub': 'https://${RoboTraderWebsiteHTTPApi}.execute-api.${AWS::Region}.amazonaws.com/'}
   StackArn:
     Description: "Use this as the stack_arn in your cloud_formation_deployment_stack override."
     Value: {Ref: 'AWS::StackId'}
@@ -92,6 +92,12 @@ Resources:
           - Action: ['cognito-idp:DescribeUserPool']
             Effect: Allow
             Resource: 'arn:aws:cognito-idp:*:*:userpool/*'
+        - Version: '2012-10-17'
+          #Access to create SSM parameters
+          Statement:
+          - Action: ['ssm:PutParameter', 'ssm:GetParameter']
+            Effect: Allow
+            Resource: 'arn:aws:ssm:*:*:parameter/*'
       Events:
         #Base react website. Client-side handles redirecting to login page.
         root:
