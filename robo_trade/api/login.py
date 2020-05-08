@@ -74,6 +74,7 @@ def lambda_handler(event, context):
     try:
         ssm_client = boto3.client('ssm')
         
+        #This has to be created here since cloudformation does not support securestring.
         ssm_client.put_parameter(
             Name = 'EpithyTrader_RH_device_token',
             Description = 'Robinhood device token generated during login.',

@@ -96,6 +96,7 @@ def lambda_handler(event, context):
     
     if 'access_token' in data:
         try:
+            #This has to be created here since cloudformation does not support securestring.
             ssm_client.put_parameter(
                 Name = 'EpithyTrader_RH_token_type',
                 Description = 'Robinhood login token type.',
