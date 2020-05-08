@@ -327,14 +327,14 @@ Resources:
       Name: "EpithyTrader_MarketOpen"
       Description: "Setting to control when the market opens for trading."
       Type: String
-      Value: "09:35:00:EDT"
+      Value: "09:35:00:US/Eastern"
   SettingMarketClosed:
     Type: "AWS::SSM::Parameter"
     Properties: 
       Name: "EpithyTrader_MarketClosed"
       Description: "Setting to control when the market closes for trading."
       Type: String
-      Value: "15:55:00:EDT"
+      Value: "15:55:00:US/Eastern"
   SettingMobileNumber:
     Type: "AWS::SSM::Parameter"
     Properties: 
