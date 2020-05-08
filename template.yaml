@@ -306,6 +306,42 @@ Resources:
       - StaticWebAssetsS3Bucket
     Properties:
       ServiceToken: { 'Fn::GetAtt' : SyncStaticAssetsS3Lambda.Arn}
+  #Master (global) settings for the site and trader bot, stored in SSM since there are only a few.
+  SettingGlobalTradingEnabled:
+    Type: "AWS::SSM::Parameter"
+    Properties: 
+      Name: "EpithyTrader_GlobalTradingEnabled"
+      Description: "Global emergency stop for all automated trading."
+      Type: String
+      Value: "True"
+  SettingShareResultsPublic:
+    Type: "AWS::SSM::Parameter"
+    Properties: 
+      Name: "EpithyTrader_ShareResultsPublic"
+      Description: "Setting to control whether or not you want to share your trades publically."
+      Type: String
+      Value: "False"
+  SettingMarketOpen:
+    Type: "AWS::SSM::Parameter"
+    Properties: 
+      Name: "EpithyTrader_MarketOpen"
+      Description: "Setting to control when the market opens for trading."
+      Type: String
+      Value: "09:35:00:EDT"
+  SettingMarketClosed:
+    Type: "AWS::SSM::Parameter"
+    Properties: 
+      Name: "EpithyTrader_MarketClosed"
+      Description: "Setting to control when the market closes for trading."
+      Type: String
+      Value: "15:55:00:EDT"
+  SettingMobileNumber:
+    Type: "AWS::SSM::Parameter"
+    Properties: 
+      Name: "EpithyTrader_MobileNumber"
+      Description: "Your mobile number to receive SMS alerts if enabled."
+      Type: String
+      Value: "+"
   #Trade history and activity dynamo table. 
   TradeActivityDDBTable:
     Type: AWS::DynamoDB::Table
