@@ -19,6 +19,7 @@ def load_html_template(event: dict) -> str:
         output = template.render(
             COGNITO_USER_POOL_ID = os.environ['COGNITO_USER_POOL_ID'],
             COGNITO_CLIENT_ID = os.environ['COGNITO_CLIENT_ID'],
+            COGNITO_IDENTITY_ID = os.environ['COGNITO_IDENTITY_ID'],
             awsregion = os.environ['AWS_REGION'],
             currentview = event['rawPath']
         )

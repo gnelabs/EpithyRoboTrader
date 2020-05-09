@@ -166,9 +166,10 @@ Resources:
             Method: post
       Environment:
         Variables:
-          #Cognito user pool and client ID required to allow the user to register and login.
+          #Cognito user pool identity id, and client ID required for login and registration.
           COGNITO_USER_POOL_ID: {Ref: RoboTraderCognitoUserPool}
           COGNITO_CLIENT_ID: {Ref: RoboTraderCognitoUserPoolClient}
+          COGNITO_IDENTITY_ID: {Ref: RoboTraderCognitoIdentityPool}
           #S3 bucket URL for static assets. 
           STATIC_ASSETS_BUCKET: { 'Fn::GetAtt' : StaticWebAssetsS3Bucket.RegionalDomainName}
   #Cognito user pool for API gateway auth.
