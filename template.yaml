@@ -322,20 +322,6 @@ Resources:
       Description: "Setting to control whether or not you want to share your trades publically."
       Type: String
       Value: "False"
-  SettingMarketOpen:
-    Type: "AWS::SSM::Parameter"
-    Properties: 
-      Name: "EpithyTrader_MarketOpen"
-      Description: "Setting to control when the market opens for trading."
-      Type: String
-      Value: "09:35:00:US/Eastern"
-  SettingMarketClosed:
-    Type: "AWS::SSM::Parameter"
-    Properties: 
-      Name: "EpithyTrader_MarketClosed"
-      Description: "Setting to control when the market closes for trading."
-      Type: String
-      Value: "15:55:00:US/Eastern"
   SettingMobileNumber:
     Type: "AWS::SSM::Parameter"
     Properties: 
@@ -359,3 +345,111 @@ Resources:
           AttributeType: S
         - AttributeName: tradeBuyDate
           AttributeType: S
+  #SQS Queues to manage order flow and ongoing operations.
+  IgnitionQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: EpithyIgnitionQueue.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      DelaySeconds: 0
+      VisibilityTimeout: 11
+      MessageRetentionPeriod: 901
+  ExtendedHoursQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: EpithyExtendedHoursQueue.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      DelaySeconds: 1
+      VisibilityTimeout: 4
+      MessageRetentionPeriod: 60
+  MarketHoursQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: EpithyMarketHoursQueue.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      DelaySeconds: 1
+      VisibilityTimeout: 4
+      MessageRetentionPeriod: 60
+  ReconcilliationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: EpithyReconcilliationQueue.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      DelaySeconds: 0
+      VisibilityTimeout: 31
+      MessageRetentionPeriod: 60
+  #Permissions to allow lambdas to read/write to the queues
+  LambdaQueueAccess:
+    Type: AWS::SQS::QueuePolicy
+    Properties: 
+      PolicyDocument:
+        Id: QueuePolicy
+        Version: '2012-10-17'
+        Statement:
+        - Action:
+          - sqs:SendMessage
+          - sqs:ReceiveMessage
+          - sqs:DeleteMessage
+          - sqs:GetQueueAttributes
+          - sqs:PurgeQueue
+          Condition:
+            ArnLike:
+              aws:SourceArn: {'Fn::Sub': 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*'}
+          Effect: Allow
+          Principal: '*'
+          Resource: {'Fn::Sub': 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*'}
+          Sid: Allow-Access-To-Queues
+      Queues: 
+        - {Ref: IgnitionQueue}
+        - {Ref: ExtendedHoursQueue}
+        - {Ref: MarketHoursQueue}
+        - {Ref: ReconcilliationQueue}
+  #Ignition lambda function to start trading.
+  TradingIgnitionLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Ignition lambda function to start the short circuit.
+      MemorySize: 128
+      Handler: trade_lambda.ignition.lambda_handler
+      Runtime: python3.7
+      CodeUri: robo_trade/
+      Timeout: 10
+      Policies:
+        - Version: '2012-10-17'
+          #Access to read and write to sqs.
+          Statement:
+          - Action: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes', 'sqs:SendMessage']
+            Effect: Allow
+            Resource: { 'Fn::GetAtt' : IgnitionQueue.Arn}
+        - Version: '2012-10-17'
+          #Access to read SSM for configuration settings.
+          Statement:
+          - Action: ['ssm:GetParameter']
+            Effect: Allow
+            Resource: 'arn:aws:ssm:*:*:parameter/*'
+      Events:
+        SQSInitiator:
+          Type: SQS
+          Properties:
+            BatchSize: 1
+            Enabled: true
+            Queue: { 'Fn::GetAtt' : IgnitionQueue.Arn}
+      Environment:
+        Variables:
+          #Short circuit queue URL
+          QUEUE_NAME: {Ref: IgnitionQueue}
+  #Cloudwatch event to start trading by triggering the inigition lambda.
+  #Scheduler is for UTC, so have to start an hour early and let code handle DST.
+  StartTradingCloudwatchEvent:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: This event triggers the start of the trading day.
+      State: ENABLED
+      Targets:
+        - Arn: { 'Fn::GetAtt' : TradingIgnitionLambda.Arn}
+          Id: IgnitionLambda
+      ScheduleExpression: 'cron(0 12 ? * MON-FRI *)'
