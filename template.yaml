@@ -349,9 +349,7 @@ Resources:
   IgnitionQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: EpithyIgnitionQueue.fifo
-      FifoQueue: true
-      ContentBasedDeduplication: true
+      QueueName: EpithyIgnitionQueue
       DelaySeconds: 0
       VisibilityTimeout: 11
       MessageRetentionPeriod: 901
@@ -424,7 +422,7 @@ Resources:
           Statement:
           - Action: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes', 'sqs:SendMessage']
             Effect: Allow
-            Resource: { 'Fn::GetAtt' : IgnitionQueue.Arn}
+            Resource: {'Fn::Sub': 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*'}
         - Version: '2012-10-17'
           #Access to read SSM for configuration settings.
           Statement:
@@ -440,8 +438,9 @@ Resources:
             Queue: { 'Fn::GetAtt' : IgnitionQueue.Arn}
       Environment:
         Variables:
-          #Short circuit queue URL
-          QUEUE_NAME: {Ref: IgnitionQueue}
+          IGNITION_QUEUE_NAME: {Ref: IgnitionQueue}
+          EXTENDED_QUEUE_NAME: {Ref: ExtendedHoursQueue}
+          MARKET_QUEUE_NAME: {Ref: MarketHoursQueue}
   #Cloudwatch event to start trading by triggering the inigition lambda.
   #Scheduler is for UTC, so have to start an hour early and let code handle DST.
   StartTradingCloudwatchEvent:

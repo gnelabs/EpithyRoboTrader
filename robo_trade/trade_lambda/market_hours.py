@@ -61,5 +61,6 @@ def get_market_open_close() -> dict:
         'extended_market_open': open_extended_utc_converted_datetime,
         'extended_market_close': close_extended_utc_converted_datetime,
         'extended_time_to_close': extended_time_to_close.total_seconds(),
-        'extended_time_to_close': extended_time_to_open.total_seconds()
+        'extended_time_to_open': extended_time_to_open.total_seconds(),
+        'time_now': current_time
     }
