@@ -264,6 +264,7 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       SourceArn: { 'Fn::GetAtt' : RoboTraderCognitoUserPool.Arn}
   #Static website assets bucket. Has public access enabled.
+  #Cors configuration added to enable self-referencing static files like fonts and css.
   StaticWebAssetsS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -452,3 +453,8 @@ Resources:
         - Arn: { 'Fn::GetAtt' : TradingIgnitionLambda.Arn}
           Id: IgnitionLambda
       ScheduleExpression: 'cron(0 12 ? * MON-FRI *)'
+  #Historical ticker storage bucket. Storing in S3 since speed isn't as important.
+  HistoricalTickerS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: { 'Fn::Join' : [ '-', [ 'trade-ticker-history', { Ref: 'AWS::Region' }, { Ref: 'AWS::AccountId' }]]}

@@ -11,10 +11,13 @@ _LOGGER = logging.getLogger()
 _LOGGER.setLevel(logging.INFO)
 
 def trigger_next_execution(message: dict, delay: int, queue_name: str) -> None:
+    """
+    Function to send the next message. Normal and Fifo have different params.
+    """
     sqs = boto3.resource('sqs')
     try:
         queue = sqs.Queue(os.environ[queue_name])
-        #Fifo and regular queues act differently.
+        #Fifo messages can't be delayed arbitrarily, only its preset amount.
         if queue_name != 'IGNITION_QUEUE_NAME':
             queue.send_message(
                 MessageBody = json.dumps(message),
@@ -33,6 +36,8 @@ def lambda_handler(event, context):
     """
     Ignition lambda function. Contains business logic to decide whether or not
     to begin the short-circuit daemon that starts trading.
+    
+    This works by using SQS as a distributed while loop.
     """
     market_time_info = get_market_open_close()
     
@@ -66,7 +71,8 @@ def lambda_handler(event, context):
                     trigger_next_execution(
                         message = {
                             'message': 'Beginning extended market hours trading.',
-                            'begin_trading': True
+                            'begin_trading': True,
+                            'trading_day_end_time': market_time_info['extended_market_close'].isoformat()
                         },
                         delay = 0,
                         queue_name = 'EXTENDED_QUEUE_NAME'
@@ -84,13 +90,13 @@ def lambda_handler(event, context):
                 )
                 return {'message' : 'Delaying ignition for regular market hours.'} 
             else:
-                if not event['Records'][0]['body']['started_normal']:
-                    trigger_next_execution(
-                        message = {
-                            'message': 'Beginning normal market hours trading.',
-                            'begin_trading': True
-                        },
-                        delay = 0,
-                        queue_name = 'MARKET_QUEUE_NAME'
-                    )
-                    return {'message' : 'Beginning normal market hours trading.'} 
+                trigger_next_execution(
+                    message = {
+                        'message': 'Beginning normal market hours trading.',
+                        'begin_trading': True,
+                        'trading_day_end_time': market_time_info['market_close'].isoformat()
+                    },
+                    delay = 0,
+                    queue_name = 'MARKET_QUEUE_NAME'
+                )
+                return {'message' : 'Beginning normal market hours trading.'} 
