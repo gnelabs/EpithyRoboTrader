@@ -443,7 +443,7 @@ Resources:
           EXTENDED_QUEUE_NAME: {Ref: ExtendedHoursQueue}
           MARKET_QUEUE_NAME: {Ref: MarketHoursQueue}
   #Cloudwatch event to start trading by triggering the inigition lambda.
-  #Scheduler is for UTC, so have to start an hour early and let code handle DST.
+  #Scheduler is for GMT, so have to start an hour early and let code handle DST.
   StartTradingCloudwatchEvent:
     Type: AWS::Events::Rule
     Properties:
@@ -458,3 +458,47 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: { 'Fn::Join' : [ '-', [ 'trade-ticker-history', { Ref: 'AWS::Region' }, { Ref: 'AWS::AccountId' }]]}
+  #Core trading lambda.
+  CoreTradingLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Core lambda function that performs trading operations.
+      MemorySize: 128
+      Handler: trade_lambda.trade_core.lambda_handler
+      Runtime: python3.7
+      CodeUri: robo_trade/
+      Timeout: 3
+      Policies:
+        - Version: '2012-10-17'
+          #Access to read and write to sqs.
+          Statement:
+          - Action: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes', 'sqs:SendMessage']
+            Effect: Allow
+            Resource: {'Fn::Sub': 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*'}
+        - Version: '2012-10-17'
+          #Access to read SSM for configuration settings.
+          Statement:
+          - Action: ['ssm:GetParameter']
+            Effect: Allow
+            Resource: 'arn:aws:ssm:*:*:parameter/*'
+        - DynamoDBCrudPolicy:
+            TableName:
+              Ref: TradeActivityDDBTable
+      Events:
+        SQSInitiatorExtendedHours:
+          Type: SQS
+          Properties:
+            BatchSize: 1
+            Enabled: true
+            Queue: { 'Fn::GetAtt' : ExtendedHoursQueue.Arn}
+        SQSInitiatorMarketHours:
+          Type: SQS
+          Properties:
+            BatchSize: 1
+            Enabled: true
+            Queue: { 'Fn::GetAtt' : MarketHoursQueue.Arn}
+      Environment:
+        Variables:
+          EXTENDED_QUEUE_NAME: {Ref: ExtendedHoursQueue}
+          MARKET_QUEUE_NAME: {Ref: MarketHoursQueue}
+          TRADE_ACTIVITY_TABLE: {Ref: TradeActivityDDBTable}
