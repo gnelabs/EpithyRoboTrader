@@ -437,6 +437,14 @@ Resources:
             BatchSize: 1
             Enabled: true
             Queue: { 'Fn::GetAtt' : IgnitionQueue.Arn}
+        CloudwatchEventsInitiator:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+                - 'aws.events'
+              detail-type:
+                - 'Executes on a scheduled cron. Weekdays.'
       Environment:
         Variables:
           IGNITION_QUEUE_NAME: {Ref: IgnitionQueue}
