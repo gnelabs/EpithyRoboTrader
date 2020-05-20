@@ -6,6 +6,7 @@ import os
 import json
 import boto3
 from trade_lambda.market_hours import get_market_open_close
+from trade_lambda.strategies import get_strategies
 
 _LOGGER = logging.getLogger()
 _LOGGER.setLevel(logging.INFO)
@@ -40,6 +41,7 @@ def lambda_handler(event, context):
     This works by using SQS as a distributed while loop.
     """
     market_time_info = get_market_open_close()
+    strategies_list = get_strategies()
     
     #Determine if ignition needs to wait or not.
     if market_time_info['time_now'] < market_time_info['extended_market_open']:
@@ -68,16 +70,19 @@ def lambda_handler(event, context):
                     message_delay_seconds = int(market_time_info['time_to_open'])
                 
                 if not event['Records'][0]['body']['started_extended']:
-                    trigger_next_execution(
-                        message = {
-                            'message': 'Beginning extended market hours trading.',
-                            'begin_trading': True,
-                            'trading_day_end_time': market_time_info['extended_market_close'].isoformat()
-                        },
-                        delay = 0,
-                        queue_name = 'EXTENDED_QUEUE_NAME'
-                    )
-                    _LOGGER.info('Beginning extended market hours trading.')
+                    for strategy in strategies_list:
+                        if strategy['marketHours'] == 'Extended':
+                            trigger_next_execution(
+                                message = {
+                                    'message': 'Beginning extended market hours trading.',
+                                    'begin_trading': True,
+                                    'strategy': strategy['strategyConfig'],
+                                    'trading_day_end_time': market_time_info['extended_market_close'].isoformat()
+                                },
+                                delay = 0,
+                                queue_name = 'EXTENDED_QUEUE_NAME'
+                            )
+                            _LOGGER.info('Beginning extended market hours trading.')
                 
                 trigger_next_execution(
                     message = {
@@ -90,13 +95,17 @@ def lambda_handler(event, context):
                 )
                 return {'message' : 'Delaying ignition for regular market hours.'} 
             else:
-                trigger_next_execution(
-                    message = {
-                        'message': 'Beginning normal market hours trading.',
-                        'begin_trading': True,
-                        'trading_day_end_time': market_time_info['market_close'].isoformat()
-                    },
-                    delay = 0,
-                    queue_name = 'MARKET_QUEUE_NAME'
-                )
+                for strategy in strategies_list:
+                    if strategy['marketHours'] == 'Normal':
+                        trigger_next_execution(
+                            message = {
+                                'message': 'Beginning normal market hours trading.',
+                                'begin_trading': True,
+                                'strategy': strategy['strategyConfig'],
+                                'trading_day_end_time': market_time_info['market_close'].isoformat()
+                            },
+                            delay = 0,
+                            queue_name = 'MARKET_QUEUE_NAME'
+                        )
+                        _LOGGER.info('Beginning normal market hours trading.')
                 return {'message' : 'Beginning normal market hours trading.'} 

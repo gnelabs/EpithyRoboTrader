@@ -3,6 +3,7 @@ __author__ = "Nathan Ward"
 
 import json
 import logging
+import os
 import boto3
 from robin_stocks.authentication import generate_device_token
 import robin_stocks.urls as urls
@@ -72,18 +73,14 @@ def lambda_handler(event, context):
     device_token = generate_device_token()
     
     try:
-        ssm_client = boto3.client('ssm')
-        
-        #This has to be created here since cloudformation does not support securestring.
-        ssm_client.put_parameter(
-            Name = 'EpithyTrader_RH_device_token',
-            Description = 'Robinhood device token generated during login.',
-            Value = device_token,
-            Type = 'SecureString',
-            Overwrite = True
-        )
+        ddb_client = boto3.resource('dynamodb')
+        table = ddb_client.Table(os.environ['CREDENTIALS_TABLE'])
+        table.put_item(Item = {
+            'credsPlatform': 'robinhood',
+            'deviceToken': device_token
+        })
     except Exception:
-        _LOGGER.error('Unable stick Robinhood device token into SSM.')
+        _LOGGER.error('Unable stick Robinhood device token into DDB.')
         return {
             'statusCode': 500,
             'body': json.dumps(

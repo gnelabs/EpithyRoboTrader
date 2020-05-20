@@ -3,6 +3,7 @@ __author__ = "Nathan Ward"
 
 import json
 import logging
+import os
 import boto3
 from robin_stocks.authentication import respond_to_challenge
 import robin_stocks.helper as helper
@@ -38,13 +39,11 @@ def lambda_handler(event, context):
             'headers': {'Content-Type': 'application/json'}
         }
     
-    ssm_client = boto3.client('ssm')
+    ddb_client = boto3.resource('dynamodb')
+    table = ddb_client.Table(os.environ['CREDENTIALS_TABLE'])
     
     try:
-        device_token = ssm_client.get_parameter(
-            Name = 'EpithyTrader_RH_device_token',
-            WithDecryption = True
-        )['Parameter']['Value']
+        device_token = table.get_item(Key = {'credsPlatform': 'robinhood'})['Item']['deviceToken']
     except Exception:
         _LOGGER.error('Unable to grab Robinhood device token.')
         return {
@@ -96,32 +95,15 @@ def lambda_handler(event, context):
     
     if 'access_token' in data:
         try:
-            #This has to be created here since cloudformation does not support securestring.
-            ssm_client.put_parameter(
-                Name = 'EpithyTrader_RH_token_type',
-                Description = 'Robinhood login token type.',
-                Value = data['token_type'],
-                Type = 'SecureString',
-                Overwrite = True
-            )
-            
-            ssm_client.put_parameter(
-                Name = 'EpithyTrader_RH_access_token',
-                Description = 'Robinhood access token.',
-                Value = data['access_token'],
-                Type = 'SecureString',
-                Overwrite = True
-            )
-            
-            ssm_client.put_parameter(
-                Name = 'EpithyTrader_RH_refresh_token',
-                Description = 'Robinhood refresh token.',
-                Value = data['refresh_token'],
-                Type = 'SecureString',
-                Overwrite = True
-            )
+            table.put_item(Item = {
+                'credsPlatform': 'robinhood',
+                'deviceToken': device_token,
+                'tokenType': data['token_type'],
+                'accessToken': data['access_token'],
+                'refreshToken': data['refresh_token']
+            })
         except Exception as e:
-            _LOGGER.error('Unable stick Robinhood credentials into SSM.')
+            _LOGGER.error('Unable stick Robinhood credentials into DDB.')
             return {
                 'statusCode': 500,
                 'body': json.dumps(

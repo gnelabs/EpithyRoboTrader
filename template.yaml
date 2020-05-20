@@ -87,17 +87,33 @@ Resources:
       Timeout: 5
       Policies:
         - Version: '2012-10-17'
+          #Reading and writing to various DDB tables for admin actions.
+          Statement:
+          - Action:
+            - dynamodb:GetItem
+            - dynamodb:Scan
+            - dynamodb:Query
+            - dynamodb:BatchGetItem
+            - dynamodb:DescribeTable
+            - dynamodb:DeleteItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:ConditionCheckItem
+            Effect: Allow
+            Resource: {'Fn::Sub': 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*'}
+        - Version: '2012-10-17'
+          #Access to decrypt/encrypt kms
+          Statement:
+          - Action: ['kms:Decrypt', 'kms:Encrypt']
+            Effect: Allow
+            Resource: "*"
+        - Version: '2012-10-17'
           #Access to read determine if a Cognito user has been created (registered).
           Statement:
           - Action: ['cognito-idp:DescribeUserPool']
             Effect: Allow
             Resource: 'arn:aws:cognito-idp:*:*:userpool/*'
-        - Version: '2012-10-17'
-          #Access to create SSM parameters
-          Statement:
-          - Action: ['ssm:PutParameter', 'ssm:GetParameter']
-            Effect: Allow
-            Resource: 'arn:aws:ssm:*:*:parameter/*'
       Events:
         #Base react website. Client-side handles redirecting to login page.
         root:
@@ -172,6 +188,8 @@ Resources:
           COGNITO_IDENTITY_ID: {Ref: RoboTraderCognitoIdentityPool}
           #S3 bucket URL for static assets. 
           STATIC_ASSETS_BUCKET: { 'Fn::GetAtt' : StaticWebAssetsS3Bucket.RegionalDomainName}
+          #Robinhood credentials table.
+          CREDENTIALS_TABLE: {Ref: CredentialsDDBTable}
   #Cognito user pool for API gateway auth.
   RoboTraderCognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -308,29 +326,7 @@ Resources:
       - StaticWebAssetsS3Bucket
     Properties:
       ServiceToken: { 'Fn::GetAtt' : SyncStaticAssetsS3Lambda.Arn}
-  #Master (global) settings for the site and trader bot, stored in SSM since there are only a few.
-  SettingGlobalTradingEnabled:
-    Type: "AWS::SSM::Parameter"
-    Properties: 
-      Name: "EpithyTrader_GlobalTradingEnabled"
-      Description: "Global emergency stop for all automated trading."
-      Type: String
-      Value: "True"
-  SettingShareResultsPublic:
-    Type: "AWS::SSM::Parameter"
-    Properties: 
-      Name: "EpithyTrader_ShareResultsPublic"
-      Description: "Setting to control whether or not you want to share your trades publically."
-      Type: String
-      Value: "False"
-  SettingMobileNumber:
-    Type: "AWS::SSM::Parameter"
-    Properties: 
-      Name: "EpithyTrader_MobileNumber"
-      Description: "Your mobile number to receive SMS alerts if enabled."
-      Type: String
-      Value: "+"
-  #Trade history and activity dynamo table. 
+  #Trade history and activity dynamo table. tradeStatus is indexed for speed.
   TradeActivityDDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -345,6 +341,53 @@ Resources:
         - AttributeName: tradeId
           AttributeType: S
         - AttributeName: tradeBuyDate
+          AttributeType: S
+        - AttributeName: tradeStatus
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: TradeStatusIndex
+          KeySchema:
+          - AttributeName: tradeStatus
+            KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+  #Global settings dynamodb table.
+  GlobalSettingsDDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: { 'Fn::Join' : [ '-', [ 'GlobalSettings', { Ref: 'AWS::Region' }, { Ref: 'AWS::AccountId' }, {Ref: Stage}]]}
+      BillingMode: PAY_PER_REQUEST
+      KeySchema: 
+        - AttributeName: globalConfig
+          KeyType: HASH
+      AttributeDefinitions: 
+        - AttributeName: globalConfig
+          AttributeType: S
+  #Strategy settings dynamodb table.
+  StrategySettingsDDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: { 'Fn::Join' : [ '-', [ 'StrategySettings', { Ref: 'AWS::Region' }, { Ref: 'AWS::AccountId' }, {Ref: Stage}]]}
+      BillingMode: PAY_PER_REQUEST
+      KeySchema: 
+        - AttributeName: strategyConfig
+          KeyType: HASH
+      AttributeDefinitions: 
+        - AttributeName: strategyConfig
+          AttributeType: S
+  #API credentials for RH dynamodb table.
+  CredentialsDDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: { 'Fn::Join' : [ '-', [ 'Credentials', { Ref: 'AWS::Region' }, { Ref: 'AWS::AccountId' }, {Ref: Stage}]]}
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      KeySchema: 
+        - AttributeName: credsPlatform
+          KeyType: HASH
+      AttributeDefinitions: 
+        - AttributeName: credsPlatform
           AttributeType: S
   #SQS Queues to manage order flow and ongoing operations.
   IgnitionQueue:
@@ -425,11 +468,11 @@ Resources:
             Effect: Allow
             Resource: {'Fn::Sub': 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*'}
         - Version: '2012-10-17'
-          #Access to read SSM for configuration settings.
+          #Reading strategy settings from ddb.
           Statement:
-          - Action: ['ssm:GetParameter']
+          - Action: ['dynamodb:GetItem', 'dynamodb:Scan', 'dynamodb:Query', 'dynamodb:BatchGetItem', 'dynamodb:DescribeTable']
             Effect: Allow
-            Resource: 'arn:aws:ssm:*:*:parameter/*'
+            Resource: { 'Fn::GetAtt' : StrategySettingsDDBTable.Arn}
       Events:
         SQSInitiator:
           Type: SQS
@@ -437,19 +480,12 @@ Resources:
             BatchSize: 1
             Enabled: true
             Queue: { 'Fn::GetAtt' : IgnitionQueue.Arn}
-        CloudwatchEventsInitiator:
-          Type: CloudWatchEvent
-          Properties:
-            Pattern:
-              source:
-                - 'aws.events'
-              detail-type:
-                - 'Executes on a scheduled cron. Weekdays.'
       Environment:
         Variables:
           IGNITION_QUEUE_NAME: {Ref: IgnitionQueue}
           EXTENDED_QUEUE_NAME: {Ref: ExtendedHoursQueue}
           MARKET_QUEUE_NAME: {Ref: MarketHoursQueue}
+          STRATEGIES_TABLE: { Ref: StrategySettingsDDBTable}
   #Cloudwatch event to start trading by triggering the inigition lambda.
   #Scheduler is for GMT, so have to start an hour early and let code handle DST.
   StartTradingCloudwatchEvent:
@@ -459,8 +495,15 @@ Resources:
       State: ENABLED
       Targets:
         - Arn: { 'Fn::GetAtt' : TradingIgnitionLambda.Arn}
-          Id: IgnitionLambda
+          Id: {Ref: TradingIgnitionLambda}
       ScheduleExpression: 'cron(0 12 ? * MON-FRI *)'
+  EventsInvokeIgnitionLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: {Ref: TradingIgnitionLambda}
+      Principal: 'events.amazonaws.com'
+      SourceArn: { 'Fn::GetAtt' : StartTradingCloudwatchEvent.Arn}
   #Historical ticker storage bucket. Storing in S3 since speed isn't as important.
   HistoricalTickerS3Bucket:
     Type: AWS::S3::Bucket
@@ -484,14 +527,23 @@ Resources:
             Effect: Allow
             Resource: {'Fn::Sub': 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*'}
         - Version: '2012-10-17'
-          #Access to read SSM for configuration settings.
+          #Access to read from multiple settings dynamodb tables.
           Statement:
-          - Action: ['ssm:GetParameter']
+          - Action: ['dynamodb:GetItem', 'dynamodb:Scan', 'dynamodb:Query', 'dynamodb:BatchGetItem', 'dynamodb:DescribeTable']
             Effect: Allow
-            Resource: 'arn:aws:ssm:*:*:parameter/*'
-        - DynamoDBCrudPolicy:
-            TableName:
-              Ref: TradeActivityDDBTable
+            Resource: {'Fn::Sub': 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*'}
+        - Version: '2012-10-17'
+          #Access to write to activity dynamodb table.
+          Statement:
+          - Action: ['dynamodb:DeleteItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:BatchWriteItem', 'dynamodb:ConditionCheckItem']
+            Effect: Allow
+            Resource: { 'Fn::GetAtt' : TradeActivityDDBTable.Arn}
+        - Version: '2012-10-17'
+          #Access to decrypt kms
+          Statement:
+          - Action: ['kms:Decrypt']
+            Effect: Allow
+            Resource: "*"
       Events:
         SQSInitiatorExtendedHours:
           Type: SQS
@@ -507,6 +559,11 @@ Resources:
             Queue: { 'Fn::GetAtt' : MarketHoursQueue.Arn}
       Environment:
         Variables:
-          EXTENDED_QUEUE_NAME: {Ref: ExtendedHoursQueue}
-          MARKET_QUEUE_NAME: {Ref: MarketHoursQueue}
-          TRADE_ACTIVITY_TABLE: {Ref: TradeActivityDDBTable}
+          #SQS queues to continue running
+          EXTENDED_QUEUE_NAME: { Ref: ExtendedHoursQueue}
+          MARKET_QUEUE_NAME: { Ref: MarketHoursQueue}
+          #Settings and storage tables needed for core trading activities.
+          CREDENTIALS_TABLE: { Ref: CredentialsDDBTable}
+          STRATEGIES_TABLE: { Ref: StrategySettingsDDBTable}
+          GLOBALSETTINGS_TABLE: { Ref: GlobalSettingsDDBTable}
+          TRADEACTIVITY_TABLE: { Ref: TradeActivityDDBTable}
