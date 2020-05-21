@@ -4,6 +4,7 @@ __author__ = "Nathan Ward"
 import json
 import logging
 import os
+from datetime import datetime, timezone, timedelta
 import boto3
 from robin_stocks.authentication import respond_to_challenge
 import robin_stocks.helper as helper
@@ -92,6 +93,7 @@ def lambda_handler(event, context):
     #Request to receive the JWT.
     helper.update_session('X-ROBINHOOD-CHALLENGE-RESPONSE-ID', challenge_id)
     data = helper.request_post(url, payload)
+    one_day_expiry = datetime.now(timezone.utc) + timedelta(seconds = 86400)
     
     if 'access_token' in data:
         try:
@@ -100,7 +102,8 @@ def lambda_handler(event, context):
                 'deviceToken': device_token,
                 'tokenType': data['token_type'],
                 'accessToken': data['access_token'],
-                'refreshToken': data['refresh_token']
+                'refreshToken': data['refresh_token'],
+                'expiry': one_day_expiry.isoformat()
             })
         except Exception as e:
             _LOGGER.error('Unable stick Robinhood credentials into DDB.')

@@ -468,11 +468,17 @@ Resources:
             Effect: Allow
             Resource: {'Fn::Sub': 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*'}
         - Version: '2012-10-17'
-          #Reading strategy settings from ddb.
+          #Read access to DDB.
           Statement:
           - Action: ['dynamodb:GetItem', 'dynamodb:Scan', 'dynamodb:Query', 'dynamodb:BatchGetItem', 'dynamodb:DescribeTable']
             Effect: Allow
-            Resource: { 'Fn::GetAtt' : StrategySettingsDDBTable.Arn}
+            Resource: {'Fn::Sub': 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*'}
+        - Version: '2012-10-17'
+          #Access to decrypt kms
+          Statement:
+          - Action: ['kms:Decrypt']
+            Effect: Allow
+            Resource: "*"
       Events:
         SQSInitiator:
           Type: SQS
@@ -486,6 +492,7 @@ Resources:
           EXTENDED_QUEUE_NAME: {Ref: ExtendedHoursQueue}
           MARKET_QUEUE_NAME: {Ref: MarketHoursQueue}
           STRATEGIES_TABLE: { Ref: StrategySettingsDDBTable}
+          CREDENTIALS_TABLE: { Ref: CredentialsDDBTable}
   #Cloudwatch event to start trading by triggering the inigition lambda.
   #Scheduler is for GMT, so have to start an hour early and let code handle DST.
   StartTradingCloudwatchEvent:

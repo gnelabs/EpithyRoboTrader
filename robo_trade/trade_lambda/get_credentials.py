@@ -3,6 +3,7 @@ __author__ = "Nathan Ward"
 
 import logging
 import os
+from datetime import datetime
 import boto3
 
 _LOGGER = logging.getLogger()
@@ -21,7 +22,8 @@ def robinhood_creds() -> dict:
             'device_token': rh_creds['deviceToken'],
             'token_type': rh_creds['tokenType'],
             'access_token': rh_creds['accessToken'],
-            'refresh_token': rh_creds['refreshToken']
+            'refresh_token': rh_creds['refreshToken'],
+            'expiry': datetime.fromisoformat(rh_creds['expiry'])
         }
     except Exception:
         _LOGGER.error('Unable to grab Robinhood DDB values.')

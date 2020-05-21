@@ -7,6 +7,7 @@ import json
 import boto3
 from trade_lambda.market_hours import get_market_open_close
 from trade_lambda.strategies import get_strategies
+from trade_lambda.rh_lambda_auth import RobinhoodAuth
 
 _LOGGER = logging.getLogger()
 _LOGGER.setLevel(logging.INFO)
@@ -42,6 +43,9 @@ def lambda_handler(event, context):
     """
     market_time_info = get_market_open_close()
     strategies_list = get_strategies()
+    robinhood_auth = RobinhoodAuth()
+    rh_login_verified = robinhood_auth.verify_login()
+    rh_login_will_expire = robinhood_auth.check_expiry()
     
     #Determine if ignition needs to wait or not.
     if market_time_info['time_now'] < market_time_info['extended_market_open']:
@@ -61,7 +65,11 @@ def lambda_handler(event, context):
         return {'message' : 'Delaying ignitiong due to market not yet open.'}  
     else:
         if market_time_info['time_now'] > market_time_info['extended_market_close']:
-            return {'message' : 'Market is already closed.'}  
+            return {'message' : 'Market is already closed.'}
+        elif not rh_login_verified:
+            return {'message' : 'Robinhood failed an auth test.'}
+        elif rh_login_will_expire:
+            return {'message' : 'Robinhood credentials will expire before trading ends.'}
         else:
             if market_time_info['time_now'] < market_time_info['market_open']:
                 if market_time_info['time_to_open'] > 900:
