@@ -9,7 +9,7 @@ _LOGGER = logging.getLogger()
 _LOGGER.setLevel(logging.INFO)
 
 client = boto3.resource('dynamodb')
-ddb_table = client.Table(os.environ['TRADE_ACTIVITY_TABLE'])
+ddb_table = client.Table(os.environ['TRADEACTIVITY_TABLE'])
 
 ###################
 #   Unifinished   #

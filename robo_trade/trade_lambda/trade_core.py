@@ -5,7 +5,7 @@ import logging
 from trade_lambda.get_credentials import robinhood_creds
 from trade_lambda.get_enabled import confirm_enabled, check_end_of_day
 from trade_lambda.ledger import write_trade, read_trade
-from trade_lambda.messaging import next_execution
+from trade_lambda.messaging import next_execution, read_message
 
 _LOGGER = logging.getLogger()
 _LOGGER.setLevel(logging.INFO)
@@ -19,7 +19,7 @@ def lambda_handler(event, context):
     Core trading lambda. Performs closed-loop trading operations within a trading
     day following a predetermined strategy.
     """
-    sqs_message_content = event['Records'][0]['body']
+    sqs_message_content = read_message(event)
     
     #Log the start of the first run for debugging purposes.
     try:

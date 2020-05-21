@@ -8,6 +8,7 @@ import boto3
 from trade_lambda.market_hours import get_market_open_close
 from trade_lambda.strategies import get_strategies
 from trade_lambda.rh_lambda_auth import RobinhoodAuth
+from trade_lambda.messaging import next_execution
 
 _LOGGER = logging.getLogger()
 _LOGGER.setLevel(logging.INFO)
@@ -21,10 +22,7 @@ def trigger_next_execution(message: dict, delay: int, queue_name: str) -> None:
         queue = sqs.Queue(os.environ[queue_name])
         #Fifo messages can't be delayed arbitrarily, only its preset amount.
         if queue_name != 'IGNITION_QUEUE_NAME':
-            queue.send_message(
-                MessageBody = json.dumps(message),
-                MessageGroupId = 'Ignition'
-            )
+            next_execution(message = message, queue_name = queue_name)
         else:
             queue.send_message(
                 MessageBody = json.dumps(message),
@@ -77,13 +75,19 @@ def lambda_handler(event, context):
                 else:
                     message_delay_seconds = int(market_time_info['time_to_open'])
                 
-                if not event['Records'][0]['body']['started_extended']:
+                try:
+                    extended_already_started = event['Records'][0]['body']['started_extended']
+                except KeyError:
+                    extended_already_started = False
+                
+                if not extended_already_started:
                     for strategy in strategies_list:
                         if strategy['marketHours'] == 'Extended':
                             trigger_next_execution(
                                 message = {
                                     'message': 'Beginning extended market hours trading.',
                                     'begin_trading': True,
+                                    'queue_name': 'EXTENDED_QUEUE_NAME',
                                     'strategy': strategy['strategyConfig'],
                                     'trading_day_end_time': market_time_info['extended_market_close'].isoformat()
                                 },
@@ -109,6 +113,7 @@ def lambda_handler(event, context):
                             message = {
                                 'message': 'Beginning normal market hours trading.',
                                 'begin_trading': True,
+                                'queue_name': 'MARKET_QUEUE_NAME',
                                 'strategy': strategy['strategyConfig'],
                                 'trading_day_end_time': market_time_info['market_close'].isoformat()
                             },
