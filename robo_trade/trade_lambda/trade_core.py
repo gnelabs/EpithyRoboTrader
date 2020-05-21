@@ -44,11 +44,10 @@ def lambda_handler(event, context):
     robinhood_credentials = robinhood_creds()
     
     next_execution(
+        previous_message = sqs_message_content,
         message = {
-            'queue_name': sqs_message_content['queue_name'],
-            'trading_day_end_time': sqs_message_content['trading_day_end_time'],
-            'strategy': sqs_message_content['strategy'],
             'Testing': True
         },
-        queue_name = sqs_message_content['queue_name']
+        queue_name = sqs_message_content['queue_name'],
+        contextid = context.aws_request_id
     )

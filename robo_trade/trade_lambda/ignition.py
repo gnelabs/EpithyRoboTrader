@@ -13,7 +13,7 @@ from trade_lambda.messaging import next_execution
 _LOGGER = logging.getLogger()
 _LOGGER.setLevel(logging.INFO)
 
-def trigger_next_execution(message: dict, delay: int, queue_name: str) -> None:
+def trigger_next_execution(message: dict, delay: int, queue_name: str, contextid: str) -> None:
     """
     Function to send the next message. Normal and Fifo have different params.
     """
@@ -22,7 +22,15 @@ def trigger_next_execution(message: dict, delay: int, queue_name: str) -> None:
         queue = sqs.Queue(os.environ[queue_name])
         #Fifo messages can't be delayed arbitrarily, only its preset amount.
         if queue_name != 'IGNITION_QUEUE_NAME':
-            next_execution(message = message, queue_name = queue_name)
+            next_execution(
+                message = message,
+                queue_name = queue_name,
+                previous_message = {
+                    'trading_day_end_time': message['trading_day_end_time'],
+                    'strategy': message['strategy']
+                },
+                contextid = contextid
+            )
         else:
             queue.send_message(
                 MessageBody = json.dumps(message),
@@ -58,7 +66,8 @@ def lambda_handler(event, context):
                 'started_extended': False
             },
             delay = message_delay_seconds,
-            queue_name = 'IGNITION_QUEUE_NAME'
+            queue_name = 'IGNITION_QUEUE_NAME',
+            contextid = context.aws_request_id
         )
         return {'message' : 'Delaying ignitiong due to market not yet open.'}  
     else:
@@ -92,7 +101,8 @@ def lambda_handler(event, context):
                                     'trading_day_end_time': market_time_info['extended_market_close'].isoformat()
                                 },
                                 delay = 0,
-                                queue_name = 'EXTENDED_QUEUE_NAME'
+                                queue_name = 'EXTENDED_QUEUE_NAME',
+                                contextid = context.aws_request_id
                             )
                             _LOGGER.info('Beginning extended market hours trading.')
                 
@@ -103,7 +113,8 @@ def lambda_handler(event, context):
                     },
                     groupid = 'Ignition',
                     delay = message_delay_seconds,
-                    queue_name = 'IGNITION_QUEUE_NAME'
+                    queue_name = 'IGNITION_QUEUE_NAME',
+                    contextid = context.aws_request_id
                 )
                 return {'message' : 'Delaying ignition for regular market hours.'} 
             else:
@@ -118,7 +129,8 @@ def lambda_handler(event, context):
                                 'trading_day_end_time': market_time_info['market_close'].isoformat()
                             },
                             delay = 0,
-                            queue_name = 'MARKET_QUEUE_NAME'
+                            queue_name = 'MARKET_QUEUE_NAME',
+                            contextid = context.aws_request_id
                         )
                         _LOGGER.info('Beginning normal market hours trading.')
                 return {'message' : 'Beginning normal market hours trading.'} 
