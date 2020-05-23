@@ -34,7 +34,7 @@ def lambda_handler(event, context):
         return {
             'statusCode': 400,
             'body': json.dumps(
-                {'rh_login_successful': false, 'message': 'No parameters specified or missing parameters.'},
+                {'rh_login_successful': False, 'message': 'No parameters specified or missing parameters.'},
                 cls=LambdaMessageEncoder
             ),
             'headers': {'Content-Type': 'application/json'}
@@ -50,7 +50,7 @@ def lambda_handler(event, context):
         return {
             'statusCode': 500,
             'body': json.dumps(
-                {'rh_login_successful': false, 'message': 'Something went wrong server-side.'},
+                {'rh_login_successful': False, 'message': 'Something went wrong server-side.'},
                 cls=LambdaMessageEncoder
             ),
             'headers': {'Content-Type': 'application/json'}
@@ -84,7 +84,7 @@ def lambda_handler(event, context):
         return {
             'statusCode': 401,
             'body': json.dumps(
-                {'rh_login_successful': false, 'message': 'Failed to login.'},
+                {'rh_login_successful': False, 'message': 'Failed to login.'},
                 cls=LambdaMessageEncoder
             ),
             'headers': {'Content-Type': 'application/json'}
@@ -110,7 +110,7 @@ def lambda_handler(event, context):
             return {
                 'statusCode': 500,
                 'body': json.dumps(
-                    {'rh_login_successful': false, 'message': 'Something went wrong server-side.'},
+                    {'rh_login_successful': False, 'message': 'Something went wrong server-side.'},
                     cls=LambdaMessageEncoder
                 ),
                 'headers': {'Content-Type': 'application/json'}

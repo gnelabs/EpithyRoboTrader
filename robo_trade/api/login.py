@@ -75,10 +75,11 @@ def lambda_handler(event, context):
     try:
         ddb_client = boto3.resource('dynamodb')
         table = ddb_client.Table(os.environ['CREDENTIALS_TABLE'])
-        table.put_item(Item = {
-            'credsPlatform': 'robinhood',
-            'deviceToken': device_token
-        })
+        table.update_item(
+            Key = {'credsPlatform': 'robinhood'},
+            UpdateExpression = "SET deviceToken = :a",
+            ExpressionAttributeValues = {':a': device_token}
+        )
     except Exception:
         _LOGGER.error('Unable stick Robinhood device token into DDB.')
         return {
