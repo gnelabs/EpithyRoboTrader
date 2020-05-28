@@ -55,7 +55,8 @@ from web import *
 client_side_react_views = (
     '/',
     '/login',
-    '/register'
+    '/register',
+    '/settings'
 )
 for react_view in client_side_react_views:
     REGISTER[react_view] = react_app.lambda_handler
