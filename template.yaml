@@ -184,6 +184,8 @@ Resources:
           CREDENTIALS_TABLE: {Ref: CredentialsDDBTable}
           #Global settings table.
           GLOBALSETTINGS_TABLE: { Ref: GlobalSettingsDDBTable}
+          #Trading strategies settings table.
+          STRATEGIES_TABLE: { Ref: StrategySettingsDDBTable}
   #Cognito user pool for API gateway auth.
   RoboTraderCognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -320,7 +322,8 @@ Resources:
       - StaticWebAssetsS3Bucket
     Properties:
       ServiceToken: { 'Fn::GetAtt' : SyncStaticAssetsS3Lambda.Arn}
-  #Trade history and activity dynamo table. tradeStatus is indexed for speed.
+  #Trade history and activity dynamo table.
+  #Indexes: trade status (for sorting active/closed trades). paper trade (for sorting real/paper).
   TradeActivityDDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -338,10 +341,18 @@ Resources:
           AttributeType: S
         - AttributeName: tradeStatus
           AttributeType: S
+        - AttributeName: paperTrade
+          AttributeType: S
       GlobalSecondaryIndexes:
         - IndexName: TradeStatusIndex
           KeySchema:
           - AttributeName: tradeStatus
+            KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: PaperTradeIndex
+          KeySchema:
+          - AttributeName: paperTrade
             KeyType: HASH
           Projection:
             ProjectionType: ALL
@@ -364,10 +375,10 @@ Resources:
       TableName: { 'Fn::Join' : [ '-', [ 'StrategySettings', { Ref: 'AWS::Region' }, { Ref: 'AWS::AccountId' }, {Ref: Stage}]]}
       BillingMode: PAY_PER_REQUEST
       KeySchema: 
-        - AttributeName: strategyConfig
+        - AttributeName: strategyName
           KeyType: HASH
       AttributeDefinitions: 
-        - AttributeName: strategyConfig
+        - AttributeName: strategyName
           AttributeType: S
   #API credentials for RH dynamodb table.
   CredentialsDDBTable:

@@ -13,7 +13,7 @@ def get_strategies() -> list:
     table = ddb_client.Table(os.environ['STRATEGIES_TABLE'])
     
     try:
-        strategies_list = table.scan(AttributesToGet=['strategyConfig', 'marketHours'])['Items']
+        strategies_list = table.scan(AttributesToGet=['strategyName', 'marketHours'])['Items']
         return strategies_list
     except Exception as e:
         _LOGGER.error('Unable to grab list of strategies from DDB. {0}'.format(e))

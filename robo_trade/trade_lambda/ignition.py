@@ -97,7 +97,7 @@ def lambda_handler(event, context):
                                     'message': 'Beginning extended market hours trading.',
                                     'begin_trading': True,
                                     'queue_name': 'EXTENDED_QUEUE_NAME',
-                                    'strategy': strategy['strategyConfig'],
+                                    'strategy': strategy['strategyName'],
                                     'trading_day_end_time': market_time_info['extended_market_close'].isoformat()
                                 },
                                 delay = 0,
@@ -125,7 +125,7 @@ def lambda_handler(event, context):
                                 'message': 'Beginning normal market hours trading.',
                                 'begin_trading': True,
                                 'queue_name': 'MARKET_QUEUE_NAME',
-                                'strategy': strategy['strategyConfig'],
+                                'strategy': strategy['strategyName'],
                                 'trading_day_end_time': market_time_info['market_close'].isoformat()
                             },
                             delay = 0,

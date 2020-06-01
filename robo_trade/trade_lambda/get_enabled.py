@@ -22,7 +22,7 @@ def confirm_enabled(strategy: str) -> bool:
     
     try:
         global_enabled = globset_table.get_item(Key = {'globalConfig': 'SET'})['Item']['GlobalTradingEnabled']
-        strategy_enabled = strat_table.get_item(Key = {'strategyConfig': strategy})['Item']['StrategyTradingEnabled']
+        strategy_enabled = strat_table.get_item(Key = {'strategyName': strategy})['Item']['StrategyTradingEnabled']
     except Exception as e:
         _LOGGER.error('Unable to grab enablement setting DDB values. {0}'.format(e))
         raise Exception('Unable to grab enablement setting DDB values. {0}'.format(e))
