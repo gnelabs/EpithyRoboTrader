@@ -4,6 +4,20 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: SAM-based robo trader for stocks and options.
 
+#Prep for https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-template-publishing-applications.html
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: EpithyRoboTrader
+    Description: Automated stock trader built on AWS. Uses algos to perform trades with multiple brokers and data sources. Includes full frontend GUI and backend infra.
+    Author: Nathan Ward
+    SpdxLicenseId: Apache-2.0
+    LicenseUrl: LICENSE.txt
+    ReadmeUrl: README.md
+    Labels: ['serverless', 'lambda', 'stock', 'algo', 'trading']
+    HomePageUrl: https://www.epithy.com
+    SemanticVersion: 1.0.0
+    SourceCodeUrl: https://github.com/gnelabs/EpithyRoboTrader
+
 Globals:
   Function:
     #Documentation and other DeploymentPreference Types can be found here: https://github.com/awslabs/serverless-application-model/blob/master/docs/safe_lambda_deployments.rst
@@ -609,3 +623,33 @@ Resources:
       - GlobalSettingsDDBTable
     Properties:
       ServiceToken: { 'Fn::GetAtt' : SetupInitialGlobalSettingsLambda.Arn}
+  #Lambda function to populate initial config in DDB strategy settings table.
+  SetupStrategySettingsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Handler to populate initial config in DDB strategy settings table.
+      MemorySize: 256
+      Handler: cfn_lambda.strategy_settings.lambda_handler
+      Runtime: python3.7
+      CodeUri: robo_trade/
+      Timeout: 15
+      Policies:
+        - Version: '2012-10-17'
+          #Access to write to settings dynamodb table.
+          Statement:
+          - Action: ['dynamodb:PutItem']
+            Effect: Allow
+            Resource: { 'Fn::GetAtt' : StrategySettingsDDBTable.Arn}
+      Environment:
+        Variables:
+          #Strategy settings DDB table.
+          STRATEGIES_TABLE: { Ref: StrategySettingsDDBTable}
+  #Custom resource to trigger strategy settings setup.
+  #Can be re-ran to reset strategies to default or import new ones.
+  SetupStrategySettings:
+    Type: 'Custom::SetupStrategySettings'
+    DependsOn:
+      - SetupStrategySettingsLambda
+      - StrategySettingsDDBTable
+    Properties:
+      ServiceToken: { 'Fn::GetAtt' : SetupStrategySettingsLambda.Arn}
