@@ -1,17 +1,11 @@
 
 __author__ = "Nathan Ward"
 
-import os
 import json
-import logging
 from datetime import datetime, timezone
-import boto3
 from views import register_view
 from api.utils import LambdaMessageEncoder
 from trade_lambda.get_credentials import robinhood_creds
-
-_LOGGER = logging.getLogger()
-_LOGGER.setLevel(logging.INFO)
 
 @register_view('/api/get_remaining_rh_token_hours')
 def lambda_handler(event, context):
