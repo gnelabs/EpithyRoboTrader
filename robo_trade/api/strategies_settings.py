@@ -45,6 +45,51 @@ def lambda_handler(event, context):
             'headers': {'Content-Type': 'application/json'}
         }
     elif method == 'POST':
-        pass
-        #put code here.
+        try:
+            body = json.loads(event['body'])
+        except KeyError:
+            return {
+                'statusCode': 400,
+                'body': json.dumps(
+                    {'update_successful': False, 'message': 'No parameters specified or missing parameters.'},
+                    cls=LambdaMessageEncoder
+                ),
+                'headers': {'Content-Type': 'application/json'}
+            }
+        
+        #Settings changes come in the form of a simple key:value where
+        #the name of the key infers the setting type, and the value is
+        #the change. E.g. '{"Grid1_paper": false}'
+        body_split = list(body.keys())[0].split('_')
+        strat_name = body_split[0]
+        if 'paper' in body_split[1]:
+            strat_change = 'paperTrading'
+        elif 'enable' in body_split[1]:
+            strat_change = 'enabled'
+        setting = list(body.values())[0]
+        
+        try:
+            table.update_item(
+                Key = {'strategyName': strat_name},
+                UpdateExpression = 'SET {0} = :a'.format(strat_change),
+                ExpressionAttributeValues = {':a': setting}
+            )
+            return {
+                'statusCode': 200,
+                'body': json.dumps(
+                    {'update_successful': True, 'message': 'Update successful.'},
+                    cls=LambdaMessageEncoder
+                ),
+                'headers': {'Content-Type': 'application/json'}
+            }
+        except Exception as e:
+            _LOGGER.error('Unable stick strategy setting into DDB. {0}'.format(e))
+            return {
+                'statusCode': 500,
+                'body': json.dumps(
+                    {'update_successful': False, 'message': 'Something went wrong server-side.'},
+                    cls=LambdaMessageEncoder
+                ),
+                'headers': {'Content-Type': 'application/json'}
+            }
         
