@@ -588,6 +588,8 @@ Resources:
           #SQS queues to continue running
           EXTENDED_QUEUE_NAME: { Ref: ExtendedHoursQueue}
           MARKET_QUEUE_NAME: { Ref: MarketHoursQueue}
+          #SQS queue for metrics
+          METRICS_QUEUE_NAME: { Ref: MetricsQueue}
           #Settings and storage tables needed for core trading activities.
           CREDENTIALS_TABLE: { Ref: CredentialsDDBTable}
           STRATEGIES_TABLE: { Ref: StrategySettingsDDBTable}
@@ -653,3 +655,62 @@ Resources:
       - StrategySettingsDDBTable
     Properties:
       ServiceToken: { 'Fn::GetAtt' : SetupStrategySettingsLambda.Arn}
+  #Metrics queue. Used as a catch-all buffer for metrics and data collecting.
+  MetricsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: EpithyMetricsQueue
+      DelaySeconds: 0
+      VisibilityTimeout: 31
+      MessageRetentionPeriod: 60
+  #Metrics dynamodb table. Used for near-term requests.
+  #Will eventually get archived to S3.
+  MetricsDDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: { 'Fn::Join' : [ '-', [ 'Metrics', { Ref: 'AWS::Region' }, { Ref: 'AWS::AccountId' }, {Ref: Stage}]]}
+      BillingMode: PAY_PER_REQUEST
+      KeySchema: 
+        - AttributeName: metricName
+          KeyType: HASH
+        - AttributeName: timeStamp
+          KeyType: RANGE
+      AttributeDefinitions: 
+        - AttributeName: metricName
+          AttributeType: S
+        - AttributeName: timeStamp
+          AttributeType: N
+  #Lambda function to handle metrics insertion.
+  InsertMetricsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Lambda function to handle inserting various types of metrics into S3.
+      MemorySize: 128
+      Handler: metrics.insert.lambda_handler
+      Runtime: python3.7
+      CodeUri: robo_trade/
+      Timeout: 10
+      Policies:
+        - Version: '2012-10-17'
+          #Access to write to settings dynamodb table.
+          Statement:
+          - Action: ['dynamodb:PutItem']
+            Effect: Allow
+            Resource: { 'Fn::GetAtt' : MetricsDDBTable.Arn}
+        - Version: '2012-10-17'
+          #Access to read and write to sqs.
+          Statement:
+          - Action: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes', 'sqs:SendMessage']
+            Effect: Allow
+            Resource: {'Fn::Sub': 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*'}
+      Events:
+        SQSInitiatorMetrics:
+          Type: SQS
+          Properties:
+            BatchSize: 1
+            Enabled: true
+            Queue: { 'Fn::GetAtt' : MetricsQueue.Arn}
+      Environment:
+        Variables:
+          #Metrics DDB table.
+          METRICS_TABLE: { Ref: MetricsDDBTable}

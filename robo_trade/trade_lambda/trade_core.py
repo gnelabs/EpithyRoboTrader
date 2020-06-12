@@ -5,7 +5,7 @@ import logging
 from trade_lambda.get_credentials import robinhood_creds
 from trade_lambda.get_enabled import confirm_enabled, check_end_of_day
 from trade_lambda.ledger import write_trade, read_trade
-from trade_lambda.messaging import next_execution, read_message
+from trade_lambda.messaging import next_execution, read_message, send_metrics
 
 _LOGGER = logging.getLogger()
 _LOGGER.setLevel(logging.INFO)
@@ -42,6 +42,13 @@ def lambda_handler(event, context):
     
     #Robinhood login to execute trades.
     robinhood_credentials = robinhood_creds()
+    
+    #Send metrics
+    send_metrics(
+        metricname = 'TradeCoreRunning',
+        value = True,
+        resolution = 'second'
+    )
     
     next_execution(
         previous_message = sqs_message_content,

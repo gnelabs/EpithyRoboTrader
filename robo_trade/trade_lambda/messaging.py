@@ -4,6 +4,7 @@ __author__ = "Nathan Ward"
 import logging
 import os
 import json
+from datetime import datetime
 import boto3
 from api.utils import LambdaMessageEncoder
 
@@ -53,3 +54,36 @@ def read_message(event: dict) -> dict:
         raise Exception('Message is not in a standard SQS format.')
     
     return json.loads(message_raw)
+
+def send_metrics(metricname: str, value: float, resolution: str) -> None:
+    """
+    Function to send a metrics SQS message. Re-used often so its abstracted here.
+    
+    Standard attributes added to the message:
+    comptype: Computation type. I.e. whether to do a simple insert, or aggregation.
+    metricname: Name of the metric. Corresponds with the folder it goes in.
+    value: Metric value.
+    resolution: Resolution of the metric, e.g. second, minute, hour, day.
+    timestamp: UTC Epoch time in seconds.
+    """
+    sqs = boto3.resource('sqs')
+    message = {}
+    message['comptype'] = 'insert'
+    message['metricname'] = metricname
+    message['value'] = value
+    message['resolution'] = resolution
+    #Strip out milliseconds, not needed. This just rounds down.
+    #Stores as dynamodb type N (number) to allow sorting via comparison.
+    message['timestamp'] = int(datetime.now().timestamp())
+    
+    try:
+        queue = sqs.Queue(os.environ['METRICS_QUEUE_NAME'])
+        queue.send_message(
+            MessageBody = json.dumps(
+                message,
+                cls=LambdaMessageEncoder
+            )
+        )
+    except Exception as e:
+        _LOGGER.error('Problem inserting metrics SQS message. {0}'.format(e))
+        raise Exception('Problem inserting metrics SQS message. {0}'.format(e))
