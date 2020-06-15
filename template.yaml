@@ -200,6 +200,8 @@ Resources:
           GLOBALSETTINGS_TABLE: { Ref: GlobalSettingsDDBTable}
           #Trading strategies settings table.
           STRATEGIES_TABLE: { Ref: StrategySettingsDDBTable}
+          #Metrics table.
+          METRICS_TABLE: { Ref: MetricsDDBTable}
   #Cognito user pool for API gateway auth.
   RoboTraderCognitoUserPool:
     Type: AWS::Cognito::UserPool

@@ -11,10 +11,6 @@ from api.utils import LambdaMessageEncoder
 _LOGGER = logging.getLogger()
 _LOGGER.setLevel(logging.INFO)
 
-##################
-# In development #
-##################
-
 @register_view('/api/strategy_settings')
 def lambda_handler(event, context):
     """
