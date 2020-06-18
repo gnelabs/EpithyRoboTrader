@@ -55,7 +55,7 @@ def read_message(event: dict) -> dict:
     
     return json.loads(message_raw)
 
-def send_metrics(metricname: str, value: float, resolution: str) -> None:
+def send_metrics(metricname: str, value: float) -> None:
     """
     Function to send a metrics SQS message. Re-used often so its abstracted here.
     
@@ -63,7 +63,6 @@ def send_metrics(metricname: str, value: float, resolution: str) -> None:
     comptype: Computation type. I.e. whether to do a simple insert, or aggregation.
     metricname: Name of the metric. Corresponds with the folder it goes in.
     value: Metric value.
-    resolution: Resolution of the metric, e.g. second, minute, hour, day.
     timestamp: UTC Epoch time in seconds.
     """
     sqs = boto3.resource('sqs')
@@ -71,7 +70,6 @@ def send_metrics(metricname: str, value: float, resolution: str) -> None:
     message['comptype'] = 'insert'
     message['metricname'] = metricname
     message['value'] = value
-    message['resolution'] = resolution
     #Strip out milliseconds, not needed. This just rounds down.
     #Stores as dynamodb type N (number) to allow sorting via comparison.
     message['timestamp'] = int(datetime.now().timestamp())

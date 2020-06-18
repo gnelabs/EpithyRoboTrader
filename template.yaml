@@ -202,6 +202,8 @@ Resources:
           STRATEGIES_TABLE: { Ref: StrategySettingsDDBTable}
           #Metrics table.
           METRICS_TABLE: { Ref: MetricsDDBTable}
+          #Metrics definitions DDB table.
+          METRICSDEF_TABLE: { Ref: MetricsDefinitionDDBTable}
   #Cognito user pool for API gateway auth.
   RoboTraderCognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -682,6 +684,20 @@ Resources:
           AttributeType: S
         - AttributeName: timeStamp
           AttributeType: N
+  #Metrics definition table. Used to hold configuration about the
+  #metrics table and declare its schema.
+  #This helps reduce unneccessary storage costs.
+  MetricsDefinitionDDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: { 'Fn::Join' : [ '-', [ 'MetricsDefinition', { Ref: 'AWS::Region' }, { Ref: 'AWS::AccountId' }, {Ref: Stage}]]}
+      BillingMode: PAY_PER_REQUEST
+      KeySchema: 
+        - AttributeName: metricName
+          KeyType: HASH
+      AttributeDefinitions: 
+        - AttributeName: metricName
+          AttributeType: S
   #Lambda function to handle metrics insertion.
   InsertMetricsLambda:
     Type: AWS::Serverless::Function
@@ -716,3 +732,33 @@ Resources:
         Variables:
           #Metrics DDB table.
           METRICS_TABLE: { Ref: MetricsDDBTable}
+  #Lambda function to populate metrics definition in DDB table.
+  SetupMetricsDefinitionsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Handler to populate metrics definition in DDB table.
+      MemorySize: 256
+      Handler: cfn_lambda.auto_populate_metrics.lambda_handler
+      Runtime: python3.7
+      CodeUri: robo_trade/
+      Timeout: 15
+      Policies:
+        - Version: '2012-10-17'
+          #Access to write to settings dynamodb table.
+          Statement:
+          - Action: ['dynamodb:PutItem']
+            Effect: Allow
+            Resource: { 'Fn::GetAtt' : MetricsDefinitionDDBTable.Arn}
+      Environment:
+        Variables:
+           #Metrics definitions DDB table.
+          METRICSDEF_TABLE: { Ref: MetricsDefinitionDDBTable}
+  #Custom resource to trigger metrics definitions setup.
+  #Can be re-ran to reset metrics definitions to default or import new ones.
+  SetupMetricsDefinitions:
+    Type: 'Custom::SetupMetricsDefinitions'
+    DependsOn:
+      - SetupMetricsDefinitionsLambda
+      - MetricsDefinitionDDBTable
+    Properties:
+      ServiceToken: { 'Fn::GetAtt' : SetupMetricsDefinitionsLambda.Arn}

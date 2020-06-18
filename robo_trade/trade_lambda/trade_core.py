@@ -46,8 +46,7 @@ def lambda_handler(event, context):
     #Send metrics
     send_metrics(
         metricname = 'TradeCoreRunning',
-        value = True,
-        resolution = 'second'
+        value = 1.0
     )
     
     next_execution(
