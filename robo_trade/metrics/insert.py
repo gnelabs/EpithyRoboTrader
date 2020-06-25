@@ -4,6 +4,7 @@ __author__ = "Nathan Ward"
 import os
 import logging
 import json
+from decimal import Decimal
 import boto3
 
 _LOGGER = logging.getLogger()
@@ -22,8 +23,7 @@ class MetricsManager(object):
             self.table.put_item(Item = {
                 'metricName': data['metricname'],
                 'timeStamp': data['timestamp'],
-                'value': data['value'],
-                'resolution': data['resolution']
+                'value': Decimal(data['value'])
             })
         except Exception as e:
             _LOGGER.error('Unable to insert metric. {0}'.format(e))

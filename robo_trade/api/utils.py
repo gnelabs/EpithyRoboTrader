@@ -15,13 +15,14 @@ class LambdaMessageEncoder(json.JSONEncoder):
             int,
             float,
             complex,
-            decimal.Decimal,
             dict,
             tuple,
             list,
             bool
         ] and obj is not None:
             return str(obj)
+        elif type(obj) == decimal.Decimal:
+            return float(obj)
         
         return json.JSONEncoder.default(self, obj)
 

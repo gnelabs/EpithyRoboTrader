@@ -42,7 +42,8 @@ class SettingsDefinition(object):
             'resolution': 'second',
             'fillGaps': True,
             'defaultLookBack': 172800,
-            'archived': False
+            'archived': False,
+            'boolMetric': True
         }
 
 

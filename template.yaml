@@ -94,7 +94,8 @@ Resources:
       - StaticWebAssetsS3Bucket
     Properties:
       Description: Handler for API gateway to vend web requests.
-      MemorySize: 256
+      #Need 512 to make metrics request work without timing out.
+      MemorySize: 512
       Handler: app.lambda_handler
       Runtime: python3.7
       CodeUri: robo_trade/
