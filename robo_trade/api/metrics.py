@@ -138,7 +138,9 @@ def lambda_handler(event, context):
     if limit:
         #Limit specified means render recent data, so do
         #not average, provide raw values for the most accuracy.
-        metrics_data_condensed = metrics_data
+        #Sort before reading limit.
+        metrics_data.sort(key=sortbytimestamp)
+        metrics_data_condensed = metrics_data[-int(limit):]
     else:
         #No limit means go back as far as possible in time.
         #To make sure the charts render quickly client-side,
@@ -153,9 +155,9 @@ def lambda_handler(event, context):
                 _temptimestamps.append(j['timeStamp'])
                 _tempvalues.append(j['value'])
             metrics_data_condensed.append({'timeStamp': statistics.median(map(Decimal, _temptimestamps)), 'value': statistics.mean(_tempvalues)})
-    
-    #Then sort by timestamp.
-    metrics_data_condensed.sort(key=sortbytimestamp)
+        
+        #Then sort by timestamp.
+        metrics_data_condensed.sort(key=sortbytimestamp)
     
     try:
         keys = metrics_data_condensed[0].keys()
