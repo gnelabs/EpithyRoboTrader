@@ -1,3 +1,5 @@
+DEPRECATED
+
 # EpithyRoboTrader
 
 Serverless stock trader for Robinhood built on AWS. In development.
